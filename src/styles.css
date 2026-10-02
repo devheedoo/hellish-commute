@@ -1,0 +1,248 @@
+:root {
+  --bg: #15161a;
+  --panel: #1f2127;
+  --text: #ececf0;
+  --muted: #9a9ca6;
+  --road: #2b2d33;
+  --edge: #3a3226;
+  --line: #3a3d45;
+  --structure: #5b5e68;
+  --neutral: #c9b458;
+  --team-A: #e5484d;
+  --team-B: #3e8ef7;
+  font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--road);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.team-A { --team: var(--team-A); }
+.team-B { --team: var(--team-B); }
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- setup ---------- */
+.setup {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 48px 16px;
+}
+.setup h1 {
+  margin: 0;
+  font-size: 2.5rem;
+}
+.subtitle {
+  color: var(--muted);
+  margin-top: 4px;
+}
+.rules {
+  line-height: 1.7;
+  padding-left: 1.2em;
+}
+button.big {
+  flex: 1;
+  padding: 16px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-color: var(--team);
+  background: color-mix(in srgb, var(--team) 25%, var(--road));
+}
+
+/* ---------- game layout ---------- */
+.game {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px 16px;
+}
+
+.board {
+  /* 14칸 + gap 13개(2px) + padding(6px*2) 가 화면 폭(좌우 16px 여백)을 넘지 않도록 */
+  --cell: min(calc((100vw - 32px - 38px) / 14), 46px);
+  display: grid;
+  grid-template-columns: repeat(14, var(--cell));
+  grid-template-rows: repeat(14, var(--cell));
+  gap: 2px;
+  padding: 6px;
+  background: var(--line);
+  border-radius: 10px;
+}
+
+.cell {
+  position: relative;
+  background: var(--road);
+  border-radius: 3px;
+}
+.cell.edge {
+  background: var(--edge);
+}
+.cell.structure {
+  background: var(--structure);
+  background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgb(0 0 0 / 0.25) 4px 8px);
+}
+.cell.slot {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25);
+}
+.cell.placeable {
+  cursor: pointer;
+  box-shadow: inset 0 0 0 2px var(--team);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% { background: color-mix(in srgb, var(--team) 30%, var(--road)); }
+}
+
+.car {
+  position: absolute;
+  inset: 3px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  font-size: calc(var(--cell) * 0.45);
+  line-height: 1;
+  background: var(--team, var(--neutral));
+  opacity: 1;
+}
+.car.neutral {
+  background: var(--neutral);
+}
+.car:disabled {
+  opacity: 1;
+  filter: saturate(0.6) brightness(0.8);
+}
+.car.selectable:hover {
+  outline: 2px solid #fff;
+}
+.car.selected {
+  outline: 3px solid #fff;
+  transform: scale(1.08);
+  z-index: 1;
+}
+
+.target {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 2px dashed var(--team);
+  background: color-mix(in srgb, var(--team) 25%, transparent);
+  font-weight: 700;
+  font-size: calc(var(--cell) * 0.4);
+}
+.target.escape {
+  font-size: calc(var(--cell) * 0.26);
+  border-style: solid;
+  background: color-mix(in srgb, var(--team) 55%, transparent);
+}
+
+/* ---------- side panel ---------- */
+.panel {
+  width: min(100%, 320px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.panel section,
+.status {
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.status {
+  border-left: 4px solid var(--team, var(--muted));
+  line-height: 1.5;
+}
+.status small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.score {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+.team-label {
+  color: var(--team);
+  font-weight: 700;
+}
+.pips {
+  display: flex;
+  gap: 6px;
+}
+.pip {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--team);
+}
+.pip.on {
+  background: var(--team);
+}
+.pip.goal {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px #fff6;
+}
+
+.clock-time {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.clock-sub {
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.clock button.team-A,
+.clock button.team-B {
+  border-color: var(--team);
+}
+
+.log h3 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.log ol {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.reset {
+  align-self: flex-start;
+}
