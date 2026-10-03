@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BOUT_MS, LAYOUT, SIZE, SLOTS } from './board';
+import { BOUT_MS, cellsOf, inBounds, key, NEUTRAL_FOOTPRINTS, SIZE, SLOTS, STRUCTURES } from './board';
 import { createInitialState, placementActor, reducer } from './reducer';
-import { slide } from './rules';
-import type { Car, GameState } from './types';
+import { movesFor, slide } from './rules';
+import type { GameState, Vehicle } from './types';
 
 function startedGame(): GameState {
   let s = reducer(createInitialState(), { type: 'START', first: 'A' });
@@ -10,40 +10,57 @@ function startedGame(): GameState {
   return s;
 }
 
+const veh = (id: string, owner: Vehicle['owner'], kind: Vehicle['kind'], axis: Vehicle['axis'], r: number, c: number): Vehicle => ({
+  id,
+  owner,
+  kind,
+  axis,
+  pos: { r, c },
+});
+
 describe('board layout', () => {
-  it('is 14x14 and 180° rotationally symmetric', () => {
-    expect(LAYOUT).toHaveLength(SIZE);
-    LAYOUT.forEach((row, r) => {
-      expect(row).toHaveLength(SIZE);
-      expect(row).toBe([...LAYOUT[SIZE - 1 - r]!].reverse().join(''));
-    });
+  const footprints = [...NEUTRAL_FOOTPRINTS, ...SLOTS];
+  const cells = [...STRUCTURES, ...footprints.flatMap((f) => cellsOf(f).map(key))];
+
+  it('has about 5 structures and 8 start slots of 2-cell cars', () => {
+    expect(STRUCTURES.size).toBe(6);
+    expect(SLOTS).toHaveLength(8);
+    expect(SLOTS.every((s) => s.kind === 'car')).toBe(true);
   });
 
-  it('has 8 start slots', () => {
-    expect(SLOTS).toHaveLength(8);
+  it('keeps every piece in bounds without overlaps', () => {
+    footprints.forEach((f) => cellsOf(f).forEach((p) => expect(inBounds(p)).toBe(true)));
+    expect(new Set(cells).size).toBe(cells.length);
+  });
+
+  it('is 180° rotationally symmetric', () => {
+    const set = new Set(cells);
+    for (const k of set) {
+      const [r, c] = k.split(',').map(Number) as [number, number];
+      expect(set.has(`${SIZE - 1 - r},${SIZE - 1 - c}`)).toBe(true);
+    }
   });
 });
 
 describe('slide', () => {
-  const car = (id: string, r: number, c: number, owner: Car['owner'] = 'A'): Car => ({ id, owner, pos: { r, c } });
-
-  it('slides until blocked by another car', () => {
-    const cars = [car('A0', 10, 1), car('N0', 10, 3, 'neutral')];
-    // (10,3)은 LAYOUT상 중립 차 자리지만 여기서는 cars 배열만 기준으로 판정
-    expect(slide(cars, cars[0]!, 'right')).toEqual({ to: { r: 10, c: 2 }, escapes: false });
+  it('moves only along the vehicle axis', () => {
+    const car = veh('A0', 'A', 'car', 'h', 3, 1);
+    expect(slide([car], car, 'up')).toBeNull();
+    expect(slide([car], car, 'down')).toBeNull();
   });
 
-  it('team car reaching the edge escapes, neutral car does not', () => {
-    const team = car('A0', 3, 1);
+  it('slides until the leading cell is blocked', () => {
+    const bus = veh('N0', 'neutral', 'bus', 'v', 7, 9);
+    const car = veh('B0', 'B', 'car', 'h', 12, 9);
+    // 세로 버스(7~9행)가 아래로: 12행의 차에 막혀 9~11행에서 멈춤
+    expect(slide([bus, car], bus, 'down')).toEqual({ to: { r: 9, c: 9 }, escapes: false });
+  });
+
+  it('team vehicle reaching the edge escapes, neutral vehicle does not', () => {
+    const team = veh('A0', 'A', 'car', 'h', 3, 1);
     expect(slide([team], team, 'left')).toEqual({ to: { r: 3, c: 0 }, escapes: true });
-    const neutral = car('N9', 3, 1, 'neutral');
-    expect(slide([neutral], neutral, 'left')).toEqual({ to: { r: 3, c: 0 }, escapes: false });
-  });
-
-  it('returns null when it cannot move at all', () => {
-    // (5,6) 슬롯: 왼쪽 (5,5)는 구조물
-    const a = car('A0', 5, 6);
-    expect(slide([a], a, 'left')).toBeNull();
+    const neutral = veh('N9', 'neutral', 'bus', 'v', 2, 7);
+    expect(slide([neutral], neutral, 'up')).toEqual({ to: { r: 0, c: 7 }, escapes: false });
   });
 });
 
@@ -59,8 +76,8 @@ describe('placement', () => {
 
     expect(s.phase).toBe('playing');
     expect(s.turn).toBe('A');
-    expect(s.cars.filter((c) => c.owner === 'A')).toHaveLength(4);
-    expect(s.cars.filter((c) => c.owner === 'B')).toHaveLength(4);
+    expect(s.vehicles.filter((v) => v.owner === 'A')).toHaveLength(4);
+    expect(s.vehicles.filter((v) => v.owner === 'B')).toHaveLength(4);
   });
 
   it('ignores an occupied slot', () => {
@@ -68,30 +85,38 @@ describe('placement', () => {
     s = reducer(s, { type: 'PLACE', slotIndex: 0 });
     expect(reducer(s, { type: 'PLACE', slotIndex: 0 })).toBe(s);
   });
+
+  it('vertical center cars start boxed in; horizontal ones are stopped by neutral blockers', () => {
+    const s = startedGame();
+    const at = (i: number) => s.vehicles.find((v) => v.pos.r === SLOTS[i]!.pos.r && v.pos.c === SLOTS[i]!.pos.c)!;
+    expect(movesFor(s, at(2))).toEqual({});
+    // 슬롯 0 (5행 왼쪽 가로 차): 2열의 세로 버스에 막혀 3~4열에서 멈춤
+    expect(movesFor(s, at(0))).toEqual({ left: { to: { r: 5, c: 3 }, escapes: false } });
+  });
 });
 
 describe('moves', () => {
-  it('cannot move opponent cars', () => {
+  it('cannot move opponent vehicles', () => {
     const s = startedGame();
-    const bCar = s.cars.find((c) => c.owner === 'B')!;
-    expect(reducer(s, { type: 'MOVE', carId: bCar.id, dir: 'up' })).toBe(s);
+    const b = s.vehicles.find((v) => v.owner === 'B')!;
+    expect(reducer(s, { type: 'MOVE', vehicleId: b.id, dir: 'left' })).toBe(s);
   });
 
-  it('cannot move the neutral car that was moved on the previous turn', () => {
+  it('cannot move the neutral vehicle that was moved on the previous turn', () => {
     let s = startedGame();
-    // N2 = (2,6) 중립 차를 A가 왼쪽으로 이동
-    s = reducer(s, { type: 'MOVE', carId: 'N2', dir: 'left' });
+    // N0 = (3,4) 가로 버스를 A가 왼쪽으로 이동
+    s = reducer(s, { type: 'MOVE', vehicleId: 'N0', dir: 'left' });
     expect(s.turn).toBe('B');
-    expect(reducer(s, { type: 'MOVE', carId: 'N2', dir: 'right' })).toBe(s);
+    expect(reducer(s, { type: 'MOVE', vehicleId: 'N0', dir: 'right' })).toBe(s);
   });
 
   it('first to escape 3 cars wins', () => {
     const s: GameState = {
       ...startedGame(),
       escaped: { A: 2, B: 0 },
-      cars: [{ id: 'A0', owner: 'A', pos: { r: 3, c: 1 } }, { id: 'B0', owner: 'B', pos: { r: 10, c: 10 } }],
+      vehicles: [veh('A0', 'A', 'car', 'h', 3, 1), veh('B0', 'B', 'car', 'h', 10, 10)],
     };
-    const after = reducer(s, { type: 'MOVE', carId: 'A0', dir: 'left' });
+    const after = reducer(s, { type: 'MOVE', vehicleId: 'A0', dir: 'left' });
     expect(after.escaped.A).toBe(3);
     expect(after.phase).toBe('finished');
     expect(after.winner).toBe('A');
@@ -111,7 +136,7 @@ describe('bout clock', () => {
   it('allows only one timeout per team and freezes moves/clock during it', () => {
     let s = reducer(startedGame(), { type: 'TIMEOUT', team: 'A' });
     expect(reducer(s, { type: 'TICK', ms: 1000 })).toBe(s);
-    expect(reducer(s, { type: 'MOVE', carId: 'N2', dir: 'left' })).toBe(s);
+    expect(reducer(s, { type: 'MOVE', vehicleId: 'N0', dir: 'left' })).toBe(s);
     s = reducer(s, { type: 'RESUME' });
     expect(reducer(s, { type: 'TIMEOUT', team: 'A' })).toBe(s);
   });

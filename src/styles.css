@@ -8,6 +8,7 @@
   --line: #3a3d45;
   --structure: #5b5e68;
   --neutral: #c9b458;
+  --neutral-bus: #d98a3d;
   --team-A: #e5484d;
   --team-B: #3e8ef7;
   font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
@@ -99,7 +100,6 @@ button.big {
 }
 
 .cell {
-  position: relative;
   background: var(--road);
   border-radius: 3px;
 }
@@ -108,61 +108,66 @@ button.big {
 }
 .cell.structure {
   background: var(--structure);
-  background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgb(0 0 0 / 0.25) 4px 8px);
+  background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgb(0 0 0 / 0.3) 4px 8px);
 }
-.cell.slot {
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25);
+
+/* 차량·슬롯·이동 목표는 그리드 영역을 직접 지정해 셀 위에 겹쳐 그린다 */
+.slot,
+.vehicle,
+.target {
+  margin: 2px;
+  padding: 0;
+  border-radius: 7px;
+  line-height: 1;
 }
-.cell.placeable {
-  cursor: pointer;
-  box-shadow: inset 0 0 0 2px var(--team);
+
+.slot {
+  z-index: 1;
+  border: 2px dashed var(--team);
+  background: transparent;
   animation: pulse 1.2s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  50% { background: color-mix(in srgb, var(--team) 30%, var(--road)); }
+  50% { background: color-mix(in srgb, var(--team) 30%, transparent); }
 }
 
-.car {
-  position: absolute;
-  inset: 3px;
-  padding: 0;
+.vehicle {
+  z-index: 1;
   border: none;
-  border-radius: 6px;
-  font-size: calc(var(--cell) * 0.45);
-  line-height: 1;
-  background: var(--team, var(--neutral));
-  opacity: 1;
+  font-size: calc(var(--cell) * 0.5);
+  background: var(--team);
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.25);
 }
-.car.neutral {
+.vehicle.neutral {
   background: var(--neutral);
 }
-.car:disabled {
+.vehicle.bus.neutral {
+  background: var(--neutral-bus);
+}
+.vehicle:disabled {
   opacity: 1;
   filter: saturate(0.6) brightness(0.8);
 }
-.car.selectable:hover {
+.vehicle.selectable:hover {
   outline: 2px solid #fff;
 }
-.car.selected {
+.vehicle.selected {
+  z-index: 2;
   outline: 3px solid #fff;
-  transform: scale(1.08);
-  z-index: 1;
 }
 
 .target {
-  position: absolute;
-  inset: 0;
-  padding: 0;
+  z-index: 3;
   border: 2px dashed var(--team);
-  background: color-mix(in srgb, var(--team) 25%, transparent);
+  background: color-mix(in srgb, var(--team) 30%, transparent);
   font-weight: 700;
-  font-size: calc(var(--cell) * 0.4);
+  font-size: calc(var(--cell) * 0.45);
 }
 .target.escape {
-  font-size: calc(var(--cell) * 0.26);
+  font-size: calc(var(--cell) * 0.3);
   border-style: solid;
-  background: color-mix(in srgb, var(--team) 55%, transparent);
+  background: color-mix(in srgb, var(--team) 60%, transparent);
 }
 
 /* ---------- side panel ---------- */

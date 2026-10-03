@@ -23,8 +23,8 @@ export function App() {
     return () => clearInterval(id);
   }, [ticking]);
 
-  const move = useCallback((carId: string, dir: Dir) => {
-    dispatch({ type: 'MOVE', carId, dir });
+  const move = useCallback((vehicleId: string, dir: Dir) => {
+    dispatch({ type: 'MOVE', vehicleId, dir });
     setSelectedId(null);
   }, []);
 

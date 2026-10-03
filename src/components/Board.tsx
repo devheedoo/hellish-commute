@@ -1,100 +1,113 @@
-import { isEdge, key, SIZE, SLOTS, STRUCTURES } from '../game/board';
+import type { CSSProperties } from 'react';
+import { type Footprint, isEdge, LENGTH, SIZE, SLOTS, STRUCTURES } from '../game/board';
 import { isSlotFree } from '../game/reducer';
 import { DIRS, isSelectable, movesFor } from '../game/rules';
-import type { Car, Dir, GameState } from '../game/types';
+import type { Dir, GameState, Vehicle } from '../game/types';
 
 interface Props {
   state: GameState;
   selectedId: string | null;
-  onSelect: (carId: string | null) => void;
-  onMove: (carId: string, dir: Dir) => void;
+  onSelect: (vehicleId: string | null) => void;
+  onMove: (vehicleId: string, dir: Dir) => void;
   onPlace: (slotIndex: number) => void;
 }
 
 const ARROW: Record<Dir, string> = { up: '↑', down: '↓', left: '←', right: '→' };
 
-export function Board({ state, selectedId, onSelect, onMove, onPlace }: Props) {
-  const carAt = new Map<string, Car>(state.cars.map((c) => [key(c.pos), c]));
-  const slotAt = new Map<string, number>(SLOTS.map((s, i) => [key(s), i]));
-  const playing = state.phase === 'playing' && !state.clock.timeoutBy;
+/** 차량 크기만큼 그리드 칸을 차지하도록 배치 */
+function area({ kind, axis, pos }: Footprint): CSSProperties {
+  const len = LENGTH[kind];
+  return {
+    gridRow: axis === 'v' ? `${pos.r + 1} / span ${len}` : `${pos.r + 1}`,
+    gridColumn: axis === 'h' ? `${pos.c + 1} / span ${len}` : `${pos.c + 1}`,
+  };
+}
 
-  const selected = playing ? state.cars.find((c) => c.id === selectedId) : undefined;
-  const targets = new Map<string, { dir: Dir; escapes: boolean }>();
-  if (selected) {
-    const moves = movesFor(state, selected);
-    for (const dir of DIRS) {
-      const res = moves[dir];
-      if (res) targets.set(key(res.to), { dir, escapes: res.escapes });
-    }
-  }
+export function Board({ state, selectedId, onSelect, onMove, onPlace }: Props) {
+  const playing = state.phase === 'playing' && !state.clock.timeoutBy;
+  const selected = playing ? state.vehicles.find((v) => v.id === selectedId) : undefined;
+  const moves = selected ? movesFor(state, selected) : {};
 
   const cells = [];
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
-      const k = `${r},${c}`;
-      const car = carAt.get(k);
-      const slotIndex = slotAt.get(k);
-      const target = targets.get(k);
-      const placeable = state.phase === 'placement' && slotIndex !== undefined && isSlotFree(state, slotIndex);
-
       const classes = ['cell'];
       if (isEdge({ r, c })) classes.push('edge');
-      if (STRUCTURES.has(k)) classes.push('structure');
-      if (slotIndex !== undefined) classes.push('slot');
-      if (placeable) classes.push(`placeable team-${state.first}`);
-
-      cells.push(
-        <div
-          key={k}
-          className={classes.join(' ')}
-          onClick={placeable ? () => onPlace(slotIndex) : undefined}
-        >
-          {car && (
-            <CarTile
-              car={car}
-              selectable={playing && isSelectable(state, car)}
-              selected={car.id === selectedId}
-              locked={car.owner === 'neutral' && car.id === state.lastMovedId}
-              onClick={() => onSelect(car.id === selectedId ? null : car.id)}
-            />
-          )}
-          {target && selected && (
-            <button
-              className={`target team-${state.turn}${target.escapes ? ' escape' : ''}`}
-              onClick={() => onMove(selected.id, target.dir)}
-              aria-label={`${target.dir}로 이동`}
-            >
-              {target.escapes ? 'EXIT' : ARROW[target.dir]}
-            </button>
-          )}
-        </div>,
-      );
+      if (STRUCTURES.has(`${r},${c}`)) classes.push('structure');
+      cells.push(<div key={`${r},${c}`} className={classes.join(' ')} style={{ gridRow: r + 1, gridColumn: c + 1 }} />);
     }
   }
 
-  return <div className="board">{cells}</div>;
+  return (
+    <div className="board">
+      {cells}
+
+      {state.phase === 'placement' &&
+        SLOTS.map(
+          (slot, i) =>
+            isSlotFree(state, i) && (
+              <button
+                key={`slot${i}`}
+                className={`slot team-${state.first}`}
+                style={area(slot)}
+                onClick={() => onPlace(i)}
+                aria-label={`시작 위치 ${i + 1}`}
+              />
+            ),
+        )}
+
+      {state.vehicles.map((v) => (
+        <VehicleTile
+          key={v.id}
+          vehicle={v}
+          selectable={playing && isSelectable(state, v)}
+          selected={v.id === selectedId}
+          locked={v.owner === 'neutral' && v.id === state.lastMovedId}
+          onClick={() => onSelect(v.id === selectedId ? null : v.id)}
+        />
+      ))}
+
+      {selected &&
+        DIRS.map((dir) => {
+          const res = moves[dir];
+          if (!res) return null;
+          return (
+            <button
+              key={dir}
+              className={`target team-${state.turn}${res.escapes ? ' escape' : ''}`}
+              style={area({ ...selected, pos: res.to })}
+              onClick={() => onMove(selected.id, dir)}
+              aria-label={`${dir}로 이동`}
+            >
+              {res.escapes ? 'EXIT' : ARROW[dir]}
+            </button>
+          );
+        })}
+    </div>
+  );
 }
 
-interface CarTileProps {
-  car: Car;
+interface VehicleTileProps {
+  vehicle: Vehicle;
   selectable: boolean;
   selected: boolean;
   locked: boolean;
   onClick: () => void;
 }
 
-function CarTile({ car, selectable, selected, locked, onClick }: CarTileProps) {
-  const classes = ['car', car.owner === 'neutral' ? 'neutral' : `team-${car.owner}`];
+function VehicleTile({ vehicle, selectable, selected, locked, onClick }: VehicleTileProps) {
+  const classes = ['vehicle', vehicle.kind, vehicle.axis, vehicle.owner === 'neutral' ? 'neutral' : `team-${vehicle.owner}`];
   if (selectable) classes.push('selectable');
   if (selected) classes.push('selected');
   return (
     <button
       className={classes.join(' ')}
+      style={area(vehicle)}
       disabled={!selectable}
       onClick={onClick}
-      title={locked ? '직전에 움직인 중립 차 — 이번 차례에는 움직일 수 없음' : undefined}
+      title={locked ? '직전에 움직인 중립 차량 — 이번 차례에는 움직일 수 없음' : undefined}
     >
-      {locked ? '🔒' : '🚗'}
+      {locked ? '🔒' : vehicle.kind === 'bus' ? '🚌' : '🚗'}
     </button>
   );
 }

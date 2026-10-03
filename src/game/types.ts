@@ -1,15 +1,22 @@
 export type Team = 'A' | 'B';
 export type Owner = Team | 'neutral';
 export type Dir = 'up' | 'down' | 'left' | 'right';
+/** 자동차 2칸, 버스 3칸 */
+export type Kind = 'car' | 'bus';
+/** h: 가로로 놓여 좌우로만, v: 세로로 놓여 상하로만 이동 */
+export type Axis = 'h' | 'v';
 
 export interface Pos {
   r: number;
   c: number;
 }
 
-export interface Car {
+export interface Vehicle {
   id: string;
   owner: Owner;
+  kind: Kind;
+  axis: Axis;
+  /** 맨 위(세로) 또는 맨 왼쪽(가로) 칸 */
   pos: Pos;
 }
 
@@ -28,7 +35,7 @@ export interface GameState {
   phase: Phase;
   /** 선공 팀 */
   first: Team;
-  cars: Car[];
+  vehicles: Vehicle[];
   turn: Team;
   /** 직전 차례에 움직인 타일. 중립 타일은 직전에 움직였다면 다시 움직일 수 없다. */
   lastMovedId: string | null;
@@ -43,7 +50,7 @@ export interface GameState {
 export type Action =
   | { type: 'START'; first: Team }
   | { type: 'PLACE'; slotIndex: number }
-  | { type: 'MOVE'; carId: string; dir: Dir }
+  | { type: 'MOVE'; vehicleId: string; dir: Dir }
   | { type: 'TICK'; ms: number }
   | { type: 'TOGGLE_CLOCK' }
   | { type: 'TIMEOUT'; team: Team }

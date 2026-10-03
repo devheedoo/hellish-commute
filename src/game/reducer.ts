@@ -2,22 +2,23 @@ import {
   BOUT_MS,
   CARS_PER_TEAM,
   ESCAPES_TO_WIN,
-  initialNeutralCars,
+  initialNeutrals,
   other,
   PLACED_BY_OPPONENT,
   SLOTS,
 } from './board';
 import { hasAnyMove, isSelectable, slide } from './rules';
-import type { Action, Car, Dir, GameState, Team } from './types';
+import type { Action, Dir, GameState, Team, Vehicle } from './types';
 
 export const TEAM_NAME: Record<Team, string> = { A: '레드팀', B: '블루팀' };
+const KIND_NAME = { car: '자동차', bus: '버스' } as const;
 const DIR_NAME: Record<Dir, string> = { up: '위로', down: '아래로', left: '왼쪽으로', right: '오른쪽으로' };
 
 export function createInitialState(): GameState {
   return {
     phase: 'setup',
     first: 'A',
-    cars: initialNeutralCars(),
+    vehicles: initialNeutrals(),
     turn: 'A',
     lastMovedId: null,
     escaped: { A: 0, B: 0 },
@@ -33,13 +34,13 @@ export function createInitialState(): GameState {
  * 후공 팀이 선공 팀 자동차 3대를 먼저 놓고, 이어서 선공 팀이 자기 마지막 1대를 놓는다.
  */
 export function placementActor(state: GameState): Team {
-  const placed = state.cars.filter((c) => c.owner === state.first).length;
+  const placed = state.vehicles.filter((v) => v.owner === state.first).length;
   return placed < PLACED_BY_OPPONENT ? other(state.first) : state.first;
 }
 
 export function isSlotFree(state: GameState, slotIndex: number): boolean {
   const slot = SLOTS[slotIndex];
-  return !!slot && !state.cars.some((c) => c.pos.r === slot.r && c.pos.c === slot.c);
+  return !!slot && !state.vehicles.some((v) => v.pos.r === slot.pos.r && v.pos.c === slot.pos.c);
 }
 
 function place(state: GameState, slotIndex: number): GameState {
@@ -47,52 +48,53 @@ function place(state: GameState, slotIndex: number): GameState {
   if (state.phase !== 'placement' || !slot || !isSlotFree(state, slotIndex)) return state;
 
   const actor = placementActor(state);
-  const n = state.cars.filter((c) => c.owner === state.first).length;
-  let cars: Car[] = [...state.cars, { id: `${state.first}${n}`, owner: state.first, pos: slot }];
+  const n = state.vehicles.filter((v) => v.owner === state.first).length;
+  let vehicles: Vehicle[] = [...state.vehicles, { id: `${state.first}${n}`, owner: state.first, ...slot }];
   const log = [...state.log, `${TEAM_NAME[actor]}: ${TEAM_NAME[state.first]} 자동차 배치`];
 
-  if (n + 1 < CARS_PER_TEAM) return { ...state, cars, log };
+  if (n + 1 < CARS_PER_TEAM) return { ...state, vehicles, log };
 
   // 선공 팀 4대가 모두 놓이면 남은 슬롯은 자동으로 후공 팀 차지
   const second = other(state.first);
-  const occupied = new Set(cars.map((c) => `${c.pos.r},${c.pos.c}`));
-  const rest = SLOTS.filter((s) => !occupied.has(`${s.r},${s.c}`));
-  cars = [...cars, ...rest.map((pos, i): Car => ({ id: `${second}${i}`, owner: second, pos }))];
+  const taken = { ...state, vehicles };
+  const rest = SLOTS.filter((_, i) => isSlotFree(taken, i));
+  vehicles = [...vehicles, ...rest.map((slot, i): Vehicle => ({ id: `${second}${i}`, owner: second, ...slot }))];
 
   return {
     ...state,
     phase: 'playing',
-    cars,
+    vehicles,
     turn: state.first,
     clock: { ...state.clock, running: true },
     log: [...log, `남은 자리에 ${TEAM_NAME[second]} 자동차 자동 배치 — 게임 시작!`],
   };
 }
 
-function move(state: GameState, carId: string, dir: Dir): GameState {
+function move(state: GameState, vehicleId: string, dir: Dir): GameState {
   if (state.phase !== 'playing' || state.clock.timeoutBy) return state;
-  const car = state.cars.find((c) => c.id === carId);
-  if (!car || !isSelectable(state, car)) return state;
-  const res = slide(state.cars, car, dir);
+  const vehicle = state.vehicles.find((v) => v.id === vehicleId);
+  if (!vehicle || !isSelectable(state, vehicle)) return state;
+  const res = slide(state.vehicles, vehicle, dir);
   if (!res) return state;
 
   const mover = state.turn;
   const escaped = { ...state.escaped };
-  let cars: Car[];
-  let entry = `${TEAM_NAME[mover]}: ${car.owner === 'neutral' ? '중립 차' : '자기 차'} ${DIR_NAME[dir]} 이동`;
+  let vehicles: Vehicle[];
+  const subject = vehicle.owner === 'neutral' ? `중립 ${KIND_NAME[vehicle.kind]}` : '자기 차';
+  let entry = `${TEAM_NAME[mover]}: ${subject} ${DIR_NAME[dir]} 이동`;
   if (res.escapes) {
-    cars = state.cars.filter((c) => c.id !== carId);
+    vehicles = state.vehicles.filter((v) => v.id !== vehicleId);
     escaped[mover] += 1;
     entry += ` → 탈출! (${escaped[mover]}/${ESCAPES_TO_WIN})`;
   } else {
-    cars = state.cars.map((c) => (c.id === carId ? { ...c, pos: res.to } : c));
+    vehicles = state.vehicles.map((v) => (v.id === vehicleId ? { ...v, pos: res.to } : v));
   }
 
   let next: GameState = {
     ...state,
-    cars,
+    vehicles,
     escaped,
-    lastMovedId: carId,
+    lastMovedId: vehicleId,
     turn: other(mover),
     log: [...state.log, entry],
   };
@@ -152,7 +154,7 @@ export function reducer(state: GameState, action: Action): GameState {
     case 'PLACE':
       return place(state, action.slotIndex);
     case 'MOVE':
-      return move(state, action.carId, action.dir);
+      return move(state, action.vehicleId, action.dir);
     case 'TICK':
       return tick(state, action.ms);
     case 'TOGGLE_CLOCK':
