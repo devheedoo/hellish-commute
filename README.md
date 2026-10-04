@@ -12,6 +12,14 @@ npm test           # 게임 로직 단위 테스트 (vitest)
 npm run build      # 타입 체크 + 정적 빌드 (dist/)
 ```
 
+## 배포
+
+기본 브랜치에 푸시하면 GitHub Actions(`.github/workflows/deploy.yml`)가 테스트 → 빌드 → GitHub Pages 배포를 진행합니다.
+
+- 주소: https://devheedoo.github.io/hellish-commute/
+- 최초 1회: 저장소 **Settings → Pages → Build and deployment → Source**를 **GitHub Actions**로 설정
+- `vite.config.ts`의 `base: './'` 덕분에 저장소 이름(하위 경로)과 관계없이 동작합니다.
+
 ## 게임 규칙
 
 공개된 방송 정보를 바탕으로 정리한 규칙입니다.
