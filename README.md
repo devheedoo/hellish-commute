@@ -14,7 +14,7 @@ npm run build      # 타입 체크 + 정적 빌드 (dist/)
 
 ## 배포
 
-기본 브랜치에 푸시하면 GitHub Actions(`.github/workflows/deploy.yml`)가 테스트 → 빌드 → GitHub Pages 배포를 진행합니다.
+`main`에 푸시하면 GitHub Actions(`.github/workflows/deploy.yml`)가 테스트 → 빌드 → GitHub Pages 배포를 진행합니다.
 
 - 주소: https://devheedoo.github.io/hellish-commute/
 - 최초 1회: 저장소 **Settings → Pages → Build and deployment → Source**를 **GitHub Actions**로 설정
