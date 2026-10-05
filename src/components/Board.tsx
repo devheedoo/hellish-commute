@@ -1,8 +1,9 @@
-import type { CSSProperties } from 'react';
+import { type CSSProperties, useRef } from 'react';
 import { type Footprint, isEdge, LENGTH, SIZE, SLOTS, STRUCTURES } from '../game/board';
 import { isSlotFree } from '../game/reducer';
 import { DIRS, isSelectable, movesFor } from '../game/rules';
-import type { Dir, GameState, Vehicle } from '../game/types';
+import type { Dir, GameState, LastMove, Vehicle } from '../game/types';
+import { useEscapeAnimation, useSlideAnimation } from './slideAnimation';
 
 interface Props {
   state: GameState;
@@ -67,6 +68,8 @@ export function Board({ state, selectedId, onSelect, onMove, onPlace }: Props) {
         />
       ))}
 
+      {state.lastMove?.escaped && <EscapingVehicle key={state.lastMove.seq} move={state.lastMove} />}
+
       {selected &&
         DIRS.map((dir) => {
           const res = moves[dir];
@@ -96,11 +99,14 @@ interface VehicleTileProps {
 }
 
 function VehicleTile({ vehicle, selectable, selected, locked, onClick }: VehicleTileProps) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useSlideAnimation(ref, vehicle.pos);
   const classes = ['vehicle', vehicle.kind, vehicle.axis, vehicle.owner === 'neutral' ? 'neutral' : `team-${vehicle.owner}`];
   if (selectable) classes.push('selectable');
   if (selected) classes.push('selected');
   return (
     <button
+      ref={ref}
       className={classes.join(' ')}
       style={area(vehicle)}
       disabled={!selectable}
@@ -109,5 +115,22 @@ function VehicleTile({ vehicle, selectable, selected, locked, onClick }: Vehicle
     >
       {locked ? '🔒' : vehicle.kind === 'bus' ? '🚌' : '🚗'}
     </button>
+  );
+}
+
+/** 탈출해 상태에서 사라진 차량을 잠깐 그려 판 밖으로 빠져나가는 모습을 보여준다 */
+function EscapingVehicle({ move }: { move: LastMove }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { vehicle, to, dir } = move;
+  useEscapeAnimation(ref, vehicle.pos, to, dir, LENGTH[vehicle.kind]);
+  return (
+    <div
+      ref={ref}
+      className={`vehicle escaping ${vehicle.kind} ${vehicle.axis} team-${vehicle.owner}`}
+      style={area({ ...vehicle, pos: to })}
+      aria-hidden
+    >
+      🚗
+    </div>
   );
 }

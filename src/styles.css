@@ -97,6 +97,8 @@ button.big {
   padding: 6px;
   background: var(--line);
   border-radius: 10px;
+  /* 탈출하는 차량이 판 밖으로 빠져나가며 잘려 보이도록 */
+  overflow: hidden;
 }
 
 .cell {
@@ -151,6 +153,12 @@ button.big {
 }
 .vehicle.selectable:hover {
   outline: 2px solid #fff;
+}
+.vehicle.escaping {
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
 }
 .vehicle.selected {
   z-index: 2;

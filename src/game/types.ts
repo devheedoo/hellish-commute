@@ -31,6 +31,17 @@ export interface BoutClock {
   timeoutBy: Team | null;
 }
 
+/** 직전 이동 기록. 이동·탈출 애니메이션에 쓴다. */
+export interface LastMove {
+  /** 이동마다 증가하는 번호 */
+  seq: number;
+  /** 이동 전 차량 */
+  vehicle: Vehicle;
+  dir: Dir;
+  to: Pos;
+  escaped: boolean;
+}
+
 export interface GameState {
   phase: Phase;
   /** 선공 팀 */
@@ -39,6 +50,7 @@ export interface GameState {
   turn: Team;
   /** 직전 차례에 움직인 타일. 중립 타일은 직전에 움직였다면 다시 움직일 수 없다. */
   lastMovedId: string | null;
+  lastMove: LastMove | null;
   escaped: Record<Team, number>;
   /** null + phase 'finished' 이면 교착(무승부) */
   winner: Team | null;

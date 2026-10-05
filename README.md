@@ -55,6 +55,7 @@ src/
     game.test.ts
   components/
     Board.tsx      # 14×14 그리드. 차량은 grid-area로 여러 칸을 차지하게 겹쳐 그림. 선택하면 도착 위치(↑↓←→ / EXIT) 표시
+    slideAnimation.ts # FLIP(Web Animations API)으로 이동·탈출 시 미끄러지는 애니메이션
     SidePanel.tsx  # 현재 차례, 탈출 현황, 1분 시계, 타임아웃, 기록
     SetupScreen.tsx
   App.tsx          # useReducer + 시계 interval + 방향키 입력

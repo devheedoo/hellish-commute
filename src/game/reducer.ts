@@ -21,6 +21,7 @@ export function createInitialState(): GameState {
     vehicles: initialNeutrals(),
     turn: 'A',
     lastMovedId: null,
+    lastMove: null,
     escaped: { A: 0, B: 0 },
     winner: null,
     clock: { index: 0, remainingMs: BOUT_MS, running: false, timeoutBy: null },
@@ -95,6 +96,7 @@ function move(state: GameState, vehicleId: string, dir: Dir): GameState {
     vehicles,
     escaped,
     lastMovedId: vehicleId,
+    lastMove: { seq: (state.lastMove?.seq ?? 0) + 1, vehicle, dir, to: res.to, escaped: res.escapes },
     turn: other(mover),
     log: [...state.log, entry],
   };
